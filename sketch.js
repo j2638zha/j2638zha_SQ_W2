@@ -42,14 +42,14 @@ function preload() {
   // loadImage with error callbacks: if files are missing,
   // the variables stay null and we fall back to drawn graphics.
   fishImg = loadImage(
-    "fish.png",
+    "assets/images/fish.png",
     () => {},
     () => {
       fishImg = null;
     },
   );
   bgImg = loadImage(
-    "water.jpg",
+    "assets/images/water.jpg",
     () => {},
     () => {
       bgImg = null;
