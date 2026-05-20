@@ -24,8 +24,8 @@ To run the sketch locally, open `index.html` in Google Chrome using Live Server.
 
 **Controls:**
 
-- Swim: Arrow Keys or WASD
-- Boost and create bubbles: SPACE
+- Move left/right: Arrow Keys or A/D
+- Jump: Up Arrow or W
 
 **Opening the Chrome Console**
 
@@ -43,5 +43,4 @@ The console will show any errors in your sketch.
 
 ## References
 
-[1] Davi. 2018. _gray and yellow fish._ [Unsplash](https://unsplash.com/photos/gray-and-yellow-fish-iLwQIbWxv-s). Published January 19, 2018. Accessed May 20, 2026.
-[2] Cristian Palmer. 2018. _clear blue body of water_ [Unsplash](https://unsplash.com/photos/clear-blue-body-of-water-XexawgzYOBc). Published June 26, 2018. Accessed May 20, 2026.
+[1] Davi. 2021. _gray and yellow fish._ [Unsplash](https://unsplash.com/photos/gray-and-yellow-fish-iLwQIbWxv-s). Published January 19, 2018. Accessed May 20, 2026.
