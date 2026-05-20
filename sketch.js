@@ -1,210 +1,276 @@
 // ============================================================
-// Week 2 Example 1: Movement, Gravity, and Collision
+// Fish Swimming Game
 // ============================================================
 
 // ------------------------------------------------------------
-// THE PLAYER OBJECT
-// An object groups related data together in one place.
-// Instead of separate variables (playerX, playerY, playerVX...),
-// we store everything about the player in one object.
+// FISH PLAYER OBJECT
+// Swimming replaces platformer physics:
+//   - No hard gravity; instead gentle buoyancy pulls fish upward
+//   - Boost key gives a forward speed burst
+//   - Fish sprite flips to face movement direction
 // ------------------------------------------------------------
-let player = {
-  x: 200, // horizontal position (centre of blob)
-  y: 100, // vertical position (centre of blob)
+let fish = {
+  x: 200,
+  y: 225,
 
-  vx: 0, // horizontal velocity — how fast we're moving left/right
-  vy: 0, // vertical velocity — how fast we're moving up/down
+  vx: 0,
+  vy: 0,
 
-  r: 24, // radius of the blob shape
+  w: 80, // sprite display width
+  h: 50, // sprite display height
 
-  // Movement tuning — change these to adjust how the game feels
-  speed: 0.5,     // horizontal acceleration per frame
-  maxSpeed: 4,    // maximum horizontal speed
-  jumpForce: -12, // upward velocity applied when jumping (negative = upward)
-  friction: 0.8,  // horizontal slowdown when no key is pressed (0–1, lower = more friction)
+  speed: 0.4, // acceleration per frame
+  maxSpeed: 5, // max horizontal speed
+  vertSpeed: 0.35, // vertical acceleration
+  maxVertSpeed: 4, // max vertical speed
+  friction: 0.88, // drag (water feels thicker than air)
 
-  onGround: false, // tracks whether the player is standing on something
+  boostForce: 3.5, // extra vx added on boost
+  maxBoostSpeed: 9,
+
+  facingRight: true, // for flipping the sprite
 };
 
 // ------------------------------------------------------------
-// PHYSICS CONSTANTS
-// Defined outside the player object so they can be shared
-// across multiple objects later (e.g. enemies)
+// BUOYANCY — replaces gravity
+// A gentle upward nudge when not actively swimming down.
+// Makes it feel like the fish floats naturally.
 // ------------------------------------------------------------
-const GRAVITY = 0.6; // downward force added to vy every frame
+const BUOYANCY = -0.08; // small upward force every frame
 
 // ------------------------------------------------------------
-// NOISE BLOB ANIMATION
-// We use p5's noise() function to make the blob edges wobble
-// organically. blobT increases each frame to animate the wobble.
+// BUBBLES
+// Each bubble is an object: { x, y, r, vy, alpha }
+// They're created when the player boosts and float upward.
 // ------------------------------------------------------------
-let blobT = 0; // time input for noise — increases each frame
+let bubbles = [];
 
-// Floor position — where the ground is
-let floorY;
+// ------------------------------------------------------------
+// FISH IMAGE — loaded in preload()
+// ------------------------------------------------------------
+let fishImg;
+let bgImg;
+
+// Tail wag animation
+let wagT = 0;
+
+// Boost cooldown so bubbles aren't spawned every frame
+let boostCooldown = 0;
+
+// ============================================================
+// preload()
+// p5 calls this before setup(). Images must be loaded here
+// so they're ready before the sketch starts drawing.
+// ============================================================
+function preload() {
+  // These filenames must match the files in your project folder.
+  fishImg = loadImage("fish.png");
+  bgImg = loadImage("water.jpg");
+}
 
 // ============================================================
 // setup()
-// Runs once at the very start of the sketch.
-// Sets up the canvas and positions the player on the floor.
 // ============================================================
 function setup() {
   createCanvas(800, 450);
-  floorY = height - 40;         // ground sits 40px from the bottom
-  player.y = floorY - player.r; // start the player sitting on the floor
+  imageMode(CENTER);
 }
 
 // ============================================================
 // draw()
-// Runs repeatedly in a loop after setup() finishes.
-// Each frame we clear the background, handle input,
-// apply physics, and draw everything.
 // ============================================================
 function draw() {
-  background(10); // near-black background
+  // Draw water background, stretched to fill canvas
+  image(bgImg, width / 2, height / 2, width, height);
 
-  drawFloor();
+  // Overlay tint to deepen the underwater feel
+  fill(0, 40, 80, 60);
+  noStroke();
+  rect(0, 0, width, height);
+
   handleInput();
   applyPhysics();
-  drawPlayer();
+  updateBubbles();
+  drawBubbles();
+  drawFish();
   drawHUD();
 
-  blobT += 0.015; // advance blob wobble animation each frame
+  wagT += 0.06;
+  if (boostCooldown > 0) boostCooldown--;
 }
 
 // ------------------------------------------------------------
 // handleInput()
-// Checks which keys are held down this frame and updates
-// the player's velocity accordingly.
-// keyIsDown() returns true as long as the key is held —
-// unlike keyPressed(), which only fires once per press.
-// We check both arrow keys and WASD so either works.
+// Arrow keys / WASD move the fish in all four directions.
+// Space or W triggers a forward boost + bubble burst.
 // ------------------------------------------------------------
 function handleInput() {
-  // --- Horizontal movement ---
-  if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) { // LEFT or A
-    player.vx -= player.speed;
+  // Horizontal
+  if (keyIsDown(LEFT_ARROW) || keyIsDown(65)) {
+    // LEFT / A
+    fish.vx -= fish.speed;
+    fish.facingRight = false;
   }
-  if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) { // RIGHT or D
-    player.vx += player.speed;
-  }
-
-  // --- Clamp horizontal speed ---
-  // constrain(value, min, max) keeps a value within a range.
-  // Without this, holding a key forever would accelerate infinitely.
-  player.vx = constrain(player.vx, -player.maxSpeed, player.maxSpeed);
-
-  // --- Apply friction when no horizontal key is pressed ---
-  // Multiplying by a value less than 1 gradually slows the player down.
-  if (
-    !keyIsDown(LEFT_ARROW) &&
-    !keyIsDown(65) &&
-    !keyIsDown(RIGHT_ARROW) &&
-    !keyIsDown(68)
-  ) {
-    player.vx *= player.friction;
+  if (keyIsDown(RIGHT_ARROW) || keyIsDown(68)) {
+    // RIGHT / D
+    fish.vx += fish.speed;
+    fish.facingRight = true;
   }
 
-  // --- Jump ---
-  // The player can only jump when standing on the ground (onGround = true).
-  // This prevents jumping again mid-air.
-  if ((keyIsDown(UP_ARROW) || keyIsDown(87)) && player.onGround) { // UP or W
-    player.vy = player.jumpForce;
-    player.onGround = false;
+  // Clamp horizontal speed (normal swimming)
+  fish.vx = constrain(fish.vx, -fish.maxSpeed, fish.maxSpeed);
+
+  // Vertical
+  if (keyIsDown(UP_ARROW)) {
+    fish.vy -= fish.vertSpeed;
+  }
+  if (keyIsDown(DOWN_ARROW)) {
+    fish.vy += fish.vertSpeed;
+  }
+  fish.vy = constrain(fish.vy, -fish.maxVertSpeed, fish.maxVertSpeed);
+
+  // Water drag on both axes
+  fish.vx *= fish.friction;
+  fish.vy *= fish.friction;
+
+  // --- BOOST (Space bar = 32, W = 87) ---
+  // Propels the fish forward and spawns bubbles.
+  if (keyIsDown(32) || keyIsDown(87)) {
+    let dir = fish.facingRight ? 1 : -1;
+    fish.vx = constrain(
+      fish.vx + dir * fish.boostForce,
+      -fish.maxBoostSpeed,
+      fish.maxBoostSpeed,
+    );
+
+    // Spawn bubbles every few frames while boosting
+    if (boostCooldown === 0) {
+      spawnBubbles(3);
+      boostCooldown = 6;
+    }
   }
 }
 
 // ------------------------------------------------------------
 // applyPhysics()
-// Each frame we:
-//   1. Add gravity to vertical velocity (vy)
-//   2. Move the player by its velocity (vx, vy)
-//   3. Check if it has landed on the floor
+// Buoyancy + movement + boundary clamping.
 // ------------------------------------------------------------
 function applyPhysics() {
-  // 1. Apply gravity — pulls the player down every frame
-  player.vy += GRAVITY;
-
-  // 2. Move player by its current velocity
-  player.x += player.vx;
-  player.y += player.vy;
-
-  // 3. Floor collision
-  // If the bottom of the blob goes below the floor, push it back up.
-  if (player.y + player.r >= floorY) {
-    player.y = floorY - player.r; // snap to floor
-    player.vy = 0;                // stop falling
-    player.onGround = true;       // allow jumping again
-  } else {
-    player.onGround = false;
+  // Gentle buoyancy nudges fish upward when not near top
+  if (fish.y > 60) {
+    fish.vy += BUOYANCY;
   }
 
-  // 4. Wall collision — keep player inside canvas
-  player.x = constrain(player.x, player.r, width - player.r);
+  fish.x += fish.vx;
+  fish.y += fish.vy;
+
+  // Keep fish inside canvas
+  fish.x = constrain(fish.x, fish.w / 2, width - fish.w / 2);
+  fish.y = constrain(fish.y, fish.h / 2, height - fish.h / 2);
+
+  // Bounce velocity slightly off walls
+  if (fish.x <= fish.w / 2 || fish.x >= width - fish.w / 2) fish.vx *= -0.4;
+  if (fish.y <= fish.h / 2 || fish.y >= height - fish.h / 2) fish.vy *= -0.4;
 }
 
 // ------------------------------------------------------------
-// drawPlayer()
-// The blob is drawn as a polygon using noise() to offset
-// each vertex slightly, creating an organic wobble effect.
-// push() and pop() save and restore drawing settings so
-// styles set here don't affect other drawing functions.
+// drawFish()
+// Draws the fish.png sprite, flipped to face movement direction.
+// A subtle vertical wobble is added using sin() to simulate
+// the natural undulation of swimming.
 // ------------------------------------------------------------
-function drawPlayer() {
-  push(); // save current drawing settings
+function drawFish() {
+  push();
+  translate(fish.x, fish.y);
 
-  // Teal fill, no outline
-  fill(0, 200, 180);
-  noStroke();
+  // Flip horizontally if facing left
+  if (!fish.facingRight) scale(-1, 1);
 
-  // Draw a circle-ish shape with noisy edges
-  beginShape();
-  let numPoints = 48; // more points = smoother shape
-  for (let i = 0; i < numPoints; i++) {
-    let angle = (TWO_PI / numPoints) * i;
+  // Gentle body wobble — tilts slightly based on wagT
+  let wobble = sin(wagT) * 4;
+  rotate(radians(wobble));
 
-    // noise() returns a smooth random value between 0 and 1.
-    // We use it to push each vertex in or out slightly.
-    let noiseVal = noise(cos(angle) * 0.8 + blobT, sin(angle) * 0.8 + blobT);
+  // Draw sprite
+  image(fishImg, 0, 0, fish.w, fish.h);
 
-    // map() converts noise (0–1) to a radius offset (-8 to +8 pixels)
-    let r = player.r + map(noiseVal, 0, 1, -8, 8);
-
-    // Convert polar coordinates (angle, radius) to x/y
-    let vertX = player.x + cos(angle) * r;
-    let vertY = player.y + sin(angle) * r;
-    vertex(vertX, vertY);
-  }
-  endShape(CLOSE);
-
-  // Draw two simple eyes
-  fill(10);
-  ellipse(player.x - 8, player.y - 6, 8, 8);
-  ellipse(player.x + 8, player.y - 6, 8, 8);
-
-  pop(); // restore drawing settings
+  pop();
 }
 
 // ------------------------------------------------------------
-// drawFloor()
-// A simple rectangle across the bottom of the canvas.
+// spawnBubbles(n)
+// Creates n bubble objects near the fish's mouth.
+// Mouth is roughly behind the fish (opposite the facing dir).
 // ------------------------------------------------------------
-function drawFloor() {
-  fill(40, 120, 110); // dark teal
+function spawnBubbles(n) {
+  let mouthOffsetX = fish.facingRight ? -fish.w * 0.45 : fish.w * 0.45;
+
+  for (let i = 0; i < n; i++) {
+    bubbles.push({
+      x: fish.x + mouthOffsetX + random(-6, 6),
+      y: fish.y + random(-8, 8),
+      r: random(4, 10),
+      vy: random(-1.2, -0.4), // float upward at varying speeds
+      vx: random(-0.3, 0.3), // slight horizontal drift
+      alpha: random(180, 230),
+    });
+  }
+}
+
+// ------------------------------------------------------------
+// updateBubbles()
+// Moves bubbles, fades them out, and removes dead ones.
+// ------------------------------------------------------------
+function updateBubbles() {
+  for (let i = bubbles.length - 1; i >= 0; i--) {
+    let b = bubbles[i];
+    b.x += b.vx;
+    b.y += b.vy;
+    b.alpha -= 2.5; // fade out over time
+    b.r += 0.05; // grow slightly as they rise
+
+    if (b.alpha <= 0) bubbles.splice(i, 1);
+  }
+}
+
+// ------------------------------------------------------------
+// drawBubbles()
+// Renders each bubble as a translucent circle with a highlight.
+// ------------------------------------------------------------
+function drawBubbles() {
+  noFill();
+  for (let b of bubbles) {
+    // Outer ring
+    stroke(200, 230, 255, b.alpha);
+    strokeWeight(1.5);
+    ellipse(b.x, b.y, b.r * 2, b.r * 2);
+
+    // Inner highlight — small bright arc
+    stroke(255, 255, 255, b.alpha * 0.6);
+    strokeWeight(1);
+    arc(
+      b.x - b.r * 0.25,
+      b.y - b.r * 0.25,
+      b.r * 0.8,
+      b.r * 0.8,
+      PI + QUARTER_PI,
+      TWO_PI,
+    );
+  }
   noStroke();
-  rect(0, floorY, width, height - floorY);
 }
 
 // ------------------------------------------------------------
 // drawHUD()
-// HUD = Heads Up Display.
-// Shows controls on screen so the player always knows
-// how to interact without needing external instructions.
 // ------------------------------------------------------------
 function drawHUD() {
-  fill(180);
+  // Semi-transparent pill
+  fill(0, 30, 60, 140);
+  noStroke();
+  rect(8, 8, 370, 28, 14);
+
+  fill(180, 220, 255);
   noStroke();
   textSize(13);
-  textAlign(LEFT);
-  text("Move: Arrow Keys or WASD   Jump: W or Up Arrow", 16, 24);
+  textAlign(LEFT, CENTER);
+  text("Swim: Arrow Keys   Boost + Bubbles: SPACE or W", 20, 22);
 }
