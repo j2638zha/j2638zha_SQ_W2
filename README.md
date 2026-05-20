@@ -36,8 +36,12 @@ The console will show any errors in your sketch.
 
 ## Assets
 
-No external assets used. All visuals are generated with p5.js.
+| File                      | Source                               |
+| ------------------------- | ------------------------------------ |
+| `assets/images/fish.png`  | Unsplash, Created by David Clode     |
+| `assets/images/water.jpg` | Unsplash, Created by Cristian Palmer |
 
 ## References
 
-N/A
+[1] Davi. 2018. _gray and yellow fish._ [Unsplash](https://unsplash.com/photos/gray-and-yellow-fish-iLwQIbWxv-s). Published January 19, 2018. Accessed May 20, 2026.
+[2] Cristian Palmer. 2018. _clear blue body of water_ [Unsplash](https://unsplash.com/photos/clear-blue-body-of-water-XexawgzYOBc). Published June 26, 2018. Accessed May 20, 2026.
