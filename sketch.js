@@ -147,15 +147,15 @@ function handleInput() {
 
   fish.vx = constrain(fish.vx, -fish.maxSpeed, fish.maxSpeed);
 
-  if (keyIsDown(UP_ARROW)) fish.vy -= fish.vertSpeed;
-  if (keyIsDown(DOWN_ARROW)) fish.vy += fish.vertSpeed;
+  if (keyIsDown(UP_ARROW) || keyIsDown(87)) fish.vy -= fish.vertSpeed; // UP or W
+  if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) fish.vy += fish.vertSpeed; // DOWN or S
   fish.vy = constrain(fish.vy, -fish.maxVertSpeed, fish.maxVertSpeed);
 
   fish.vx *= fish.friction;
   fish.vy *= fish.friction;
 
   // Boost — Space (32) or W (87)
-  if (keyIsDown(32) || keyIsDown(87)) {
+  if (keyIsDown(32)) {
     let dir = fish.facingRight ? 1 : -1;
     fish.vx = constrain(
       fish.vx + dir * fish.boostForce,
@@ -318,5 +318,5 @@ function drawHUD() {
   fill(180, 220, 255);
   textSize(13);
   textAlign(LEFT, CENTER);
-  text("Swim: Arrow Keys / AD   Boost + Bubbles: SPACE or W", 20, 22);
+  text("Swim: Arrow Keys / WASD   Boost + Bubbles: SPACE", 20, 22);
 }
