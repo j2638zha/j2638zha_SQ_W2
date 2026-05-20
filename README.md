@@ -24,8 +24,8 @@ To run the sketch locally, open `index.html` in Google Chrome using Live Server.
 
 **Controls:**
 
-- Move left/right: Arrow Keys or A/D
-- Jump: Up Arrow or W
+- Swim: Arrow Keys or WASD
+- Boost and create bubbles: SPACE
 
 **Opening the Chrome Console**
 
